@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8"><title>Hindsight</title>
+<style>body{font:14px system-ui;margin:24px;max-width:980px}select{font:inherit;max-width:100%}svg{border:1px solid #ccc;background:#fff}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #eee;padding:3px 6px;text-align:left;vertical-align:top}
+.decisive{background:#fde2e2}.err{color:#a33}.after{color:#999}code{font-size:12px}</style>
+<h2>Hindsight: where did the run go wrong?</h2>
+<p>Pick a failed trajectory. The curve is the estimated probability of eventually succeeding from the state before each step (Monte Carlo
+replay). The red line is the step where it collapses.</p>
+<select id="sel"></select> <span id="meta"></span>
+<svg id="c" width="940" height="220"></svg><table id="t"></table>
+<script>
+const $=id=>document.getElementById(id);
+async function load(){const ids=await (await fetch('/trajectories?success=false')).json();
+ $('sel').innerHTML=ids.map(i=>`<option>${i}</option>`).join('');$('sel').onchange=show;if(ids.length)show();}
+async function show(){const d=await (await fetch('/trajectory/'+$('sel').value)).json();
+ $('meta').textContent=`truth step: ${d.truth_decisive}, estimated: ${d.predicted_decisive}`;
+ const n=d.steps.length,W=940,H=220,m=30,X=t=>m+t/Math.max(n,1)*(W-2*m),Y=v=>H-m-v*(H-2*m);
+ let h=`<text x="6" y="16">P(success)</text>`;const pts=d.curve.map(c=>`${X(c.t)},${Y(c.value)}`).join(' ');
+ h+=`<polyline fill="none" stroke="#2a6" stroke-width="2" points="${pts}"/>`;
+ for(const c of d.curve)h+=`<circle cx="${X(c.t)}" cy="${Y(c.value)}" r="3" fill="#2a6"><title>t=${c.t} v=${c.value.toFixed(2)} n=${c.n}</title></circle>`;
+ if(d.predicted_decisive!=null)h+=`<line x1="${X(d.predicted_decisive+1)}" x2="${X(d.predicted_decisive+1)}" y1="${m}" y2="${H-m}" stroke="#d33" stroke-dasharray="4"/>`;
+ $('c').innerHTML=h;
+ $('t').innerHTML='<tr><th>#</th><th>action</th><th>result</th></tr>'+d.steps.map(s=>`<tr class="${s.i===d.predicted_decisive?'decisive':s.tag==='after_doom'?'after':''}"><td>${s.i}</td><td><code>${JSON.stringify(s.action)}</code></td><td class="${s.error?'err':''}">${s.obs.replace(/</g,'&lt;')}</td></tr>`).join('');}
+load();
+</script>
